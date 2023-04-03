@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace JWTAuth
 {
@@ -13,6 +14,12 @@ namespace JWTAuth
     public class AuthController: ControllerBase
     {
         public static User user = new User();
+        private IConfiguration _configuration;
+
+        public AuthController(IConfiguration configuration)
+        {
+            this._configuration = configuration;
+        }
 
         [HttpPost("register")]
         public async Task<ActionResult<User>> Register(UserDataTransferObject request)
@@ -34,9 +41,21 @@ namespace JWTAuth
                 new Claim(ClaimTypes.Name, user.Username)
             };
 
-            var key = new SymmetricSecurityKey();
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value
+                ));
 
-            return string.Empty;
+            var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+
+            var token = new JwtSecurityToken(
+                claims: claims,
+                expires: DateTime.Now.AddDays(1),
+                signingCredentials: cred
+            );
+
+            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+            return jwt;
         }
 
         [HttpPost("login")]
